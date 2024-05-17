@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,4 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { expectType } from 'tsd'
+import * as assert from 'node:assert'
+import 'zx/globals'
+;(async () => {
+  // smoke test
+  {
+    const p = await $`echo foo`
+    assert.match(p.stdout, /foo/)
+  }
+
+  // captures err stack
+  {
+    const p = await $({ nothrow: true })`echo foo; exit 3`
+    assert.match(p.message, /exit code: 3/)
+  }
+})()
+
+console.log('smoke ts: ok')

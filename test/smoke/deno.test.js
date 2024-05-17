@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import assert from 'node:assert'
-import { expectType } from 'tsd'
-import 'zx/globals'
+import { assert } from 'https://deno.land/std@0.224.0/assert/assert.ts'
+import '../../build/globals.js'
 
-let p = $`cmd`
-assert(p instanceof ProcessPromise)
-expectType<ProcessPromise>(p)
+Deno.test('deno smoke test', async () => {
+  // smoke test
+  {
+    const p = await $`echo foo`
+    assert(p.valueOf() === 'foo')
+  }
 
-let o = await p
-assert(o instanceof ProcessOutput)
-expectType<ProcessOutput>(o)
-
-expectType<string>(quote('foo'))
-expectType<string>(quotePowerShell('foo'))
+  // captures err stack
+  {
+    const p = await $({ nothrow: true })`echo foo; exit 3`
+    assert(p.message.match(/exit code: 3/))
+  }
+})

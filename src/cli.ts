@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createRequire } from 'node:module'
 import { basename, dirname, extname, join, resolve } from 'node:path'
 import url from 'node:url'
 import {
@@ -26,8 +25,9 @@ import {
   minimist,
   fs,
 } from './index.js'
-import { randomId } from './util.js'
 import { installDeps, parseDeps } from './deps.js'
+import { randomId } from './util.js'
+import { createRequire } from './vendor.js'
 
 function printUsage() {
   // language=txt
@@ -43,6 +43,7 @@ function printUsage() {
    --shell=<path>       custom shell binary
    --prefix=<command>   prefix all commands
    --postfix=<command>  postfix all commands
+   --cwd=<path>         set current directory
    --eval=<js>, -e      evaluate script 
    --install, -i        install dependencies
    --version, -v        print current zx version
@@ -52,15 +53,15 @@ function printUsage() {
 }
 
 const argv = minimist(process.argv.slice(2), {
-  string: ['shell', 'prefix', 'postfix', 'eval'],
+  string: ['shell', 'prefix', 'postfix', 'eval', 'cwd'],
   boolean: ['version', 'help', 'quiet', 'verbose', 'install', 'repl'],
   alias: { e: 'eval', i: 'install', v: 'version', h: 'help' },
   stopEarly: true,
 })
 
-await (async function main() {
-  const globals = './globals.js'
-  await import(globals)
+;(async function main() {
+  await import('./globals.js')
+  if (argv.cwd) $.cwd = argv.cwd
   if (argv.verbose) $.verbose = true
   if (argv.quiet) $.verbose = false
   if (argv.shell) $.shell = argv.shell
@@ -107,7 +108,7 @@ await (async function main() {
 })
 
 async function runScript(script: string) {
-  const filepath = join(process.cwd(), `zx-${randomId()}.mjs`)
+  const filepath = join($.cwd ?? process.cwd(), `zx-${randomId()}.mjs`)
   await writeAndImport(script, filepath)
 }
 
@@ -137,7 +138,7 @@ async function scriptFromHttp(remote: string) {
   const pathname = new URL(remote).pathname
   const name = basename(pathname)
   const ext = extname(pathname) || '.mjs'
-  const filepath = join(process.cwd(), `${name}-${randomId()}${ext}`)
+  const filepath = join($.cwd ?? process.cwd(), `${name}-${randomId()}${ext}`)
   await writeAndImport(script, filepath)
 }
 
@@ -195,7 +196,7 @@ function transformMarkdown(buf: Buffer) {
   const jsCodeBlock = /^(```+|~~~+)(js|javascript)$/
   const shCodeBlock = /^(```+|~~~+)(sh|bash)$/
   const otherCodeBlock = /^(```+|~~~+)(.*)$/
-  for (let line of source.split('\n')) {
+  for (let line of source.split(/\r?\n/)) {
     switch (state) {
       case 'root':
         if (/^( {4}|\t)/.test(line) && prevLineIsEmpty) {

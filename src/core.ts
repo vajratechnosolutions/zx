@@ -38,6 +38,7 @@ import {
   quote,
   quotePowerShell,
   noquote,
+  ensureEol,
 } from './util.js'
 
 export interface Shell {
@@ -59,6 +60,8 @@ export interface Options {
   ac?: AbortController
   signal?: AbortSignal
   input?: string | Buffer | Readable | ProcessOutput | ProcessPromise
+  timeout?: Duration
+  timeoutSignal?: string
   stdio: StdioOptions
   verbose: boolean
   sync: boolean
@@ -69,6 +72,7 @@ export interface Options {
   postfix: string
   quote: typeof quote
   quiet: boolean
+  detached: boolean
   spawn: typeof spawn
   spawnSync: typeof spawnSync
   log: typeof log
@@ -102,12 +106,12 @@ export const defaults: Options = {
   prefix: '',
   postfix: '',
   quote: noquote,
+  detached: false,
   spawn,
   spawnSync,
   log,
   kill,
 }
-const isWin = process.platform == 'win32'
 
 export function usePowerShell() {
   $.shell = which.sync('powershell.exe')
@@ -116,9 +120,17 @@ export function usePowerShell() {
   $.quote = quotePowerShell
 }
 
+export function usePwsh() {
+  $.shell = which.sync('pwsh')
+  $.prefix = ''
+  $.postfix = '; exit $LastExitCode'
+  $.quote = quotePowerShell
+}
+
 export function useBash() {
   $.shell = which.sync('bash')
   $.prefix = 'set -euo pipefail;'
+  $.postfix = ''
   $.quote = quote
 }
 
@@ -237,6 +249,7 @@ export class ProcessPromise extends Promise<ProcessOutput> {
     const input = ($.input as ProcessPromise | ProcessOutput)?.stdout ?? $.input
 
     if (input) this.stdio('pipe')
+    if ($.timeout) this.timeout($.timeout, $.timeoutSignal)
 
     $.log({
       kind: 'cmd',
@@ -256,7 +269,7 @@ export class ProcessPromise extends Promise<ProcessOutput> {
       spawnSync: $.spawnSync,
       stdio: self._stdio ?? $.stdio,
       sync: $[syncExec],
-      detached: !isWin,
+      detached: $.detached,
       run: (cb) => cb(),
       on: {
         start: () => {
@@ -639,7 +652,7 @@ export function log(entry: LogEntry) {
     case 'stdout':
     case 'stderr':
       if (!entry.verbose) return
-      process.stderr.write(entry.data)
+      process.stderr.write(ensureEol(entry.data))
       break
     case 'cd':
       if (!$.verbose) return

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import assert from 'node:assert'
-import { test, describe } from 'node:test'
+import { test, describe, before, after } from 'node:test'
 import { inspect } from 'node:util'
 import { basename } from 'node:path'
 import { Readable, Writable } from 'node:stream'
@@ -318,7 +318,7 @@ describe('core', () => {
   })
 
   test('abort() method works', async () => {
-    const p = $`sleep 9999`
+    const p = $({ detached: true })`sleep 999`
     setTimeout(() => p.abort(), 100)
 
     try {
@@ -331,7 +331,7 @@ describe('core', () => {
 
   test('accepts optional AbortController', async () => {
     const ac = new AbortController()
-    const p = $({ ac })`sleep 9999`
+    const p = $({ ac, detached: true })`sleep 999`
     setTimeout(() => ac.abort(), 100)
 
     try {
@@ -345,7 +345,7 @@ describe('core', () => {
   test('accepts AbortController `signal` separately', async () => {
     const ac = new AbortController()
     const signal = ac.signal
-    const p = $({ signal })`sleep 9999`
+    const p = $({ signal, detached: true })`sleep 999`
     setTimeout(() => ac.abort(), 100)
 
     try {
@@ -357,7 +357,7 @@ describe('core', () => {
   })
 
   test('kill() method works', async () => {
-    let p = $`sleep 9999`.nothrow()
+    let p = $`sleep 999`.nothrow()
     setTimeout(() => {
       p.kill()
     }, 100)
@@ -471,7 +471,22 @@ describe('core', () => {
   test('timeout() works', async () => {
     let exitCode, signal
     try {
-      await $`sleep 9999`.timeout(10, 'SIGKILL')
+      await $`sleep 999`.timeout(10, 'SIGKILL')
+    } catch (p) {
+      exitCode = p.exitCode
+      signal = p.signal
+    }
+    assert.equal(exitCode, null)
+    assert.equal(signal, 'SIGKILL')
+  })
+
+  test('timeout is configurable via opts', async () => {
+    let exitCode, signal
+    try {
+      await $({
+        timeout: 10,
+        timeoutSignal: 'SIGKILL',
+      })`sleep 999`
     } catch (p) {
       exitCode = p.exitCode
       signal = p.signal
@@ -582,5 +597,40 @@ describe('core', () => {
       assert.equal(err.message, 'The process is halted!')
     }
     assert.ok(ok, 'Expected failure!')
+  })
+
+  describe('presets', () => {
+    const originalWhichSync = which.sync
+    before(() => {
+      which.sync = (bin) => bin
+    })
+    after(() => {
+      which.sync = originalWhichSync
+      useBash()
+    })
+
+    test('usePwsh()', () => {
+      usePwsh()
+      assert.equal($.shell, 'pwsh')
+      assert.equal($.prefix, '')
+      assert.equal($.postfix, '; exit $LastExitCode')
+      assert.equal($.quote, quotePowerShell)
+    })
+
+    test('usePowerShell()', () => {
+      usePowerShell()
+      assert.equal($.shell, 'powershell.exe')
+      assert.equal($.prefix, '')
+      assert.equal($.postfix, '; exit $LastExitCode')
+      assert.equal($.quote, quotePowerShell)
+    })
+
+    test('useBash()', () => {
+      useBash()
+      assert.equal($.shell, 'bash')
+      assert.equal($.prefix, 'set -euo pipefail;')
+      assert.equal($.postfix, '')
+      assert.equal($.quote, quote)
+    })
   })
 })

@@ -1,6 +1,6 @@
 {
   "name": "zx",
-  "version": "8.0.1",
+  "version": "8.1.0",
   "description": "A tool for writing better scripts",
   "type": "module",
   "main": "./build/index.js",
@@ -22,72 +22,123 @@
     }
   },
   "exports": {
-    ".": "./build/index.js",
-    "./globals": "./build/globals.js",
-    "./cli": "./build/cli.js",
-    "./core": "./build/core.js",
+    ".": {
+      "types": "./build/index.d.ts",
+      "import": "./build/index.js",
+      "require": "./build/index.cjs",
+      "default": "./build/index.js"
+    },
+    "./globals": {
+      "types": "./build/globals.d.ts",
+      "import": "./build/globals.js",
+      "require": "./build/globals.cjs",
+      "default": "./build/globals.js"
+    },
+    "./cli": {
+      "types": "./build/cli.d.ts",
+      "import": "./build/cli.js",
+      "require": "./build/cli.cjs",
+      "default": "./build/cli.js"
+    },
+    "./core": {
+      "types": "./build/core.d.ts",
+      "import": "./build/core.js",
+      "require": "./build/core.cjs",
+      "default": "./build/core.js"
+    },
     "./package.json": "./package.json"
   },
   "bin": {
     "zx": "./build/cli.js"
   },
+  "man": "./man/zx.1",
+  "files": [
+    "build",
+    "man"
+  ],
   "engines": {
-    "node": ">= 16.0.0"
+    "node": ">= 12.17.0"
   },
   "scripts": {
     "fmt": "prettier --write .",
     "fmt:check": "prettier --check .",
     "build": "npm run build:js && npm run build:dts",
     "build:check": "tsc",
-    "build:js": "node scripts/build-js.mjs --format=esm --entry=src/*.ts && npm run build:vendor",
-    "build:vendor": "node scripts/build-js.mjs --format=esm --entry=src/vendor.ts --bundle=all --banner",
+    "build:js": "node scripts/build-js.mjs --format=cjs --hybrid --entry=src/*.ts && npm run build:vendor",
+    "build:vendor": "node scripts/build-js.mjs --format=cjs --entry=src/vendor.ts --bundle=all",
     "build:dts": "tsc --project tsconfig.prod.json && node scripts/build-dts.mjs",
-    "test": "npm run build && npm run test:unit && npm run test:types",
+    "pretest": "npm run build",
+    "test": "npm run test:unit && npm run test:types && npm run test:license",
     "test:unit": "node ./test/all.test.js",
+    "test:circular": "madge --circular src/*",
     "test:types": "tsd",
+    "test:license": "node ./test/extra.test.js",
+    "test:smoke:tsx": "tsx test/smoke/ts.test.ts",
+    "test:smoke:tsc": "cd test/smoke && mkdir -p node_modules && ln -s ../../../  ./node_modules/zx; tsc --esModuleInterop --module node16 --rootDir . --outdir ./temp ts.test.ts && node ./temp/ts.test.js",
+    "test:smoke:ts-node": "node --loader ts-node/esm test/smoke/ts.test.ts",
     "test:smoke:bun": "bun test ./test/smoke/bun.test.js",
     "test:smoke:win32": "node ./test/smoke/win32.test.js",
-    "coverage": "c8 -x build/vendor.js -x 'test/**' -x scripts --check-coverage npm test",
-    "circular": "madge --circular src/*",
+    "test:smoke:cjs": "node ./test/smoke/node.test.cjs",
+    "test:smoke:mjs": "node ./test/smoke/node.test.mjs",
+    "test:smoke:deno": "deno test ./test/smoke/deno.test.js --allow-read --allow-sys --allow-env --allow-run",
+    "coverage": "c8 -x build/deno.js -x build/vendor.cjs -x build/esblib.cjs -x 'test/**' -x scripts --check-coverage npm test",
     "version": "cat package.json | fx .version"
   },
   "optionalDependencies": {
     "@types/fs-extra": "^11.0.4",
-    "@types/node": ">=20.12.5"
+    "@types/node": ">=20.12.11"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
     "@types/minimist": "^1.2.5",
     "@types/node": ">=20.11.30",
     "@types/which": "^3.0.3",
-    "@webpod/ps": "^0.0.0-beta.3",
     "@webpod/ingrid": "^0.0.0-beta.3",
+    "@webpod/ps": "^0.0.0-beta.3",
     "c8": "^9.1.0",
     "chalk": "^5.3.0",
+    "create-require": "^1.1.1",
     "depseek": "^0.4.1",
-    "dts-bundle-generator": "^9.3.1",
-    "esbuild": "^0.20.2",
-    "esbuild-node-externals": "^1.13.0",
-    "esbuild-plugin-entry-chunks": "^0.1.12",
+    "dts-bundle-generator": "^9.5.1",
+    "esbuild": "^0.21.1",
+    "esbuild-node-externals": "^1.13.1",
+    "esbuild-plugin-entry-chunks": "^0.1.14",
+    "esbuild-plugin-extract-helpers": "^0.0.5",
+    "esbuild-plugin-hybrid-export": "^0.2.3",
+    "esbuild-plugin-transform-hook": "^0.0.3",
+    "esbuild-plugin-utils": "^0.0.1",
     "fs-extra": "^11.2.0",
     "fx": "*",
     "globby": "^14.0.1",
-    "madge": "^6.1.0",
+    "madge": "^7.0.0",
     "minimist": "^1.2.8",
+    "node-abort-controller": "^3.1.1",
     "node-fetch-native": "^1.6.4",
     "prettier": "^3.2.5",
+    "ts-node": "^10.9.2",
     "tsd": "^0.31.0",
-    "typescript": "^5.4.4",
+    "tsx": "^4.9.4",
+    "typescript": "^5.4.5",
     "which": "^4.0.0",
-    "yaml": "^2.4.1",
-    "zurk": "^0.1.2"
+    "yaml": "^2.4.2",
+    "zurk": "^0.1.4"
   },
   "publishConfig": {
     "registry": "https://wombat-dressing-room.appspot.com"
   },
-  "files": [
-    "build",
-    "zx.js"
+  "keywords": [
+    "shell",
+    "script",
+    "bash",
+    "bin",
+    "binary",
+    "child",
+    "process",
+    "exec",
+    "execute",
+    "invoke",
+    "call",
+    "spawn"
   ],
   "prettier": {
     "semi": false,
